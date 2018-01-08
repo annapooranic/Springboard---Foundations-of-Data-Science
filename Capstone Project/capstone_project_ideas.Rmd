@@ -1,0 +1,27 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+#Capstone Project Ideas
+
+##Idea 1 : Payday Loan Data
+
+###Client : Payday Loan Companies
+
+###Aim : Payday Loan aims at the low income group with low FICO score. Since the clients are with low FICO sore they will lean towards the companies for emergency fund with high interest rate. So this leads to the high probabilty of default rate. Idea is to predict whether the customer will default or not based on age,income,marital status,FICO score,previous lending trend and history with the current company.
+
+
+##Idea 2 : Comcast Consumer Complaints
+
+###Client : Comcast
+
+###Aim : Comcast have a terrible customer service. Due to which the particular dataset in Kaggle have the details of the customer complaints against comcast. By performing a sentiment analysis on the data, we can findout what are the area of issues that needs to be focussed on to improve customer service in comcast. Dataset contains customer details,rating and comments
+
+##Idea 3 : US Consumer Finance Complaints
+
+###Client : Finance Companies
+
+###Aim : CFPB receives thousands of customer complaints and forward it to the respective companies for actions.By adding consumer voice, it helps to improve the Financial Market.This dataset in Kaggle contains company name,product,issue,sub_issue,complaint id,date received and customer comments.The data analysis helps us to indentify the areas in which most complaints received like product,issue,state and companies. Also can focus on the sentimental analysis of the customer,that will helps the overall customer service of the Financial products.
