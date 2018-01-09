@@ -1,0 +1,14 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Machine Learning
+
+Sentiment Analysis is a part of the project,consumer_complaints_narrative column contains the customer comments will be the important variable. In order to find the main issues collocations between the words are more important.
+
+Collocation Extarction Algorithm used to calculate t-score,chi-square,PMI,MD and LFMD.
+The model is an unsupervised algoritmn.
+
+###Reference
+http://www.aclweb.org/anthology/I05-1050
