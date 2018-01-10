@@ -1,0 +1,81 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+
+```{r setup, include=FALSE}
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+```{r,echo=FALSE,include=FALSE}
+library(plyr)
+library(readr)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+
+# Statistical Analysis
+
+US Consumer Complaints dataset contains 18 vaiables. Most of the variales like company,product,sub_product,issue and sub_issue are considered as categorical varaibles
+
+##Chi-square Tests
+
+Chi-Square tests assumes a null hypothesis and an alternate hypothesis. If the p-value is less than the pre-determinded value (0.05) then null hypothesis will be rejected.The conclusion is those two categorical values are dependent.
+
+
+####Reading the data
+
+```{r}
+complaint <- read_csv("consumer_complaints.csv")
+comp_prod <- table(complaint$company,complaint$product)
+complaint$product<-as.factor(complaint$product)
+complaint$company<-as.factor(complaint$company)
+complaint$sub_product<-as.factor(complaint$sub_product)
+complaint$issue <- as.factor(complaint$issue)
+complaint$submitted_via <- as.factor(complaint$submitted_via)
+
+```
+
+##Chi-Square tests
+
+Company and Product are dependent.
+
+```{r}
+chisq.test(complaint$company,complaint$product,correct = FALSE)
+```
+
+```{r}
+chisq.test(complaint$issue,complaint$submitted_via,correct = FALSE)
+```
+
+From above results issue and subitted_via also dependent variables
+
+```{r}
+comp_disp <- complaint %>%
+  select(company,`consumer_disputed?`)%>%
+  na.omit()
+
+comp_disp_table <- table(comp_disp$company,comp_disp$`consumer_disputed?`)
+
+chisq.test(comp_disp_table,correct = FALSE)
+
+chisq.test(complaint$company,complaint$`consumer_disputed?`,correct = FALSE)
+
+
+chisq.test(complaint$timely_response,complaint$`consumer_disputed?`,correct = FALSE)
+
+```
+
+The variables for which chi-squared tests are considered are proven to be dependent.
+
