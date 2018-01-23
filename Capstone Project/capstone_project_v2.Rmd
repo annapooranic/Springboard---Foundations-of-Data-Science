@@ -1,0 +1,958 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r setup, include=FALSE}
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+```{r,echo=FALSE,include=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(widyr)
+library(lubridate)
+library(ggplot2)
+library(tm)
+library(tidytext)
+library(tidyverse)
+library(qdap)
+library(quanteda)
+library(maps)
+#library(choroplethr)
+#library(choroplethrMaps)
+library(igraph)
+library(wordcloud)
+library(text2vec)
+library(NLP)
+library(textir)
+library(tokenizers)
+library(RWeka)
+library(caret)
+library(slam)
+library(reshape2)
+library(ggrepel)
+library(ggraph)
+library(igraph)
+library(servr)
+library(LDAvis)
+```
+
+##Introduction
+
+Consumer Financial Protection Bureau is an government agency,it helps consumers complaints heard by financial companies.Comsumer complaints helps the agnecy to study and identify the inappropriate practices and allowing the government to stop those before it becomes a major issue.This project focuses on the analysis of the complaints over different segments,also providing sentiment analysis of the complaints.
+      
+##About the data
+
+The Consumer Complaint Database is a collection of complaints on a range of consumer financial products and services, sent to companies for response. It started receiving complaints from July 2011.The database generally updates daily, and contains certain information for each complaint, including the source of the complaint, the date of submission, and the company the complaint was sent to for response. The database also includes information about the actions taken by the company in response to the complaint, such as, whether the company's response was timely and how the company responded.
+      
+##Data Extraction
+
+Dataset used for analysis is [US Consumer Finance Complaints data from Kaggle](https://www.kaggle.com/cfpb/us-consumer-finance-complaints).
+Importing and Reading the csv file for further analysis,is the first step in data analysis.
+
+
+
+There are 18 variables
+
+1.Date received	
+The date the CFPB received the complaint. For example, "05/25/2013."
+
+2.Product	
+The type of product the consumer identified in the complaint. For example, "Checking or savings account" or "Student loan."
+
+3.Sub-product	
+The type of sub-product the consumer identified in the complaint. For example, "Checking account" or "Private student loan."
+
+4.Issue	
+The issue the consumer identified in the complaint. For example, "Managing an account" or "Struggling to repay your loan."
+
+5.Sub-issue	
+The sub-issue the consumer identified in the complaint. For example, "Deposits and withdrawals" or "Problem lowering your monthly payments."
+
+6.Consumer complaint narrative	
+Consumer complaint narrative is the consumer-submitted description of "what happened" from the complaint. Consumers must opt-in to share their narrative. We will not publish the narrative unless the consumer consents, and consumers can opt-out at any time. The CFPB takes reasonable steps to scrub personal information from each complaint that could be used to identify the consumer.
+
+7.Company public response	
+The company's optional, public-facing response to a consumer's complaint. Companies can choose to select a response from a pre-set list of options that will be posted on the public database. For example, "Company believes complaint is the result of an isolated error."
+
+8.Company	
+The complaint is about this company. For example, "ABC Bank."
+
+9.State	
+The state of the mailing address provided by the consumer.
+
+10.ZIP code	
+The mailing ZIP code provided by the consumer. This field may: i) include the first five digits of a ZIP code; ii) include the first three digits of a ZIP code (if the consumer consented to publication of their complaint narrative); or iii) be blank (if ZIP codes have been submitted with non-numeric values, if there are less than 20,000 people in a given ZIP code, or if the complaint has an address outside of the United States).
+
+11.Tags	
+Data that supports easier searching and sorting of complaints submitted by or on behalf of consumers.
+
+For example, complaints where the submitter reports the age of the consumer as 62 years or older are tagged "Older American." Complaints submitted by or on behalf of a servicemember or the spouse or dependent of a servicemember are tagged "Servicemember." Servicemember includes anyone who is active duty, National Guard, or Reservist, as well as anyone who previously served and is a veteran or retiree.
+
+12.Consumer consent provided?	
+Identifies whether the consumer opted in to publish their complaint narrative. We do not publish the narrative unless the consumer consents, and consumers can opt-out at any time.
+
+13.Submitted via	
+How the complaint was submitted to the CFPB. For example, "Web" or "Phone."
+
+14.Date sent to company	
+The date the CFPB sent the complaint to the company.
+
+15.Company response to consumer	
+This is how the company responded. For example, "Closed with explanation."
+
+16.Timely response?	
+Whether the company gave a timely response. For example, "Yes" or "No."
+
+17.Consumer disputed?	
+Whether the consumer disputed the company's response.
+
+18.Complaint ID	
+The unique identification number for a complaint.
+
+As we examine the data most of the variables like company,product,sub_product,issue and sub_issue are categorical variables.
+
+##Data Wrangling
+      Cleaning up of data is a very crucial step in all the data analysis projects.Undersatnding the characteristics of each variable is very important.In the subjective dataset we have two date values date_received and date_sent_to_company.So the date variables are coverted to desired format of month-date-year.
+
+
+```{r}
+complaint2 <- read_csv("consumer_complaints.csv")
+complaint2$date_received <- mdy(complaint2$date_received)
+complaint2$date_sent_to_company <- mdy(complaint2$date_sent_to_company)
+```
+
+We are very much interested in the factor variables,therby converting product,company,sub_product and issue to factors.
+
+```{r}
+complaint2$product<-as.factor(complaint2$product)
+complaint2$company<-as.factor(complaint2$company)
+complaint2$sub_product<-as.factor(complaint2$sub_product)
+complaint2$issue <- as.factor(complaint2$issue)
+
+```
+
+
+##Exploratory Data Analysis
+
+        EDA helps us to visualize and explore our data deeper. The advantages of EDA are
+        * Able to visualize better
+        * Able to ask more questions and refine them
+        * Able to identify redundancy in data
+        
+        In our data as complaints are the records of study, we are expnading our questions on categories with more complaints.
+        
+####Top 25 companies with highest number of complaints
+```{r}
+complaint2 %>%
+  count(company) %>%
+  arrange(desc(n))%>%
+  top_n(25) %>%
+  ggplot(aes(company,n,fill=company))+
+  geom_bar(stat="identity") +
+  theme(axis.text.x=element_text(angle=90),legend.position = "none")
+
+```
+
+#### Products with highest number of complaints
+```{r}
+complaint2 %>%
+  count(product) %>%
+  arrange(desc(n))%>%
+  ggplot(aes(product,n,fill=product))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x=element_text(angle=90),legend.position = "none")
+
+
+```
+```{r}
+sub_issue_data <- complaint2 %>%
+select(complaint_id,sub_issue)%>%
+na.omit()
+```
+
+#### Complaint numbers based on the Issue categories
+
+```{r}
+sub_issue_data %>%
+  count(sub_issue) %>%
+  arrange(desc(n))%>%
+  top_n(25) %>%
+  ggplot(aes(sub_issue,n,fill=sub_issue))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x=element_text(angle=90),legend.position = "none")
+```
+
+```{r }
+product_issue <- complaint2 %>%
+  select(product,issue)%>%
+  na.omit %>%
+  group_by(product,issue)%>%
+  count()
+
+```
+
+
+
+#### To identify top issues resported by customers under each product other than Credit card
+```{r}
+product_issue %>%
+  filter(n>250)%>%
+  filter(product !="Credit card") %>%
+  ggplot(aes(issue,n,fill=issue))+
+  geom_bar(stat="identity")+
+ theme(legend.position = "none")+
+ facet_wrap(~product,scale= "free",nrow = 6)+
+  coord_flip()
+```
+In each product we are having one main issue that was reported repeatedly by customers. For example, Bank account product - Account management received more complaints, Incorrect information on credit report is the top issue under credit reporting category.
+
+#### Complaint category under Credit card
+```{r}
+product_issue %>%
+  filter(n>250)%>%
+  filter(product =="Credit card") %>%
+  ggplot(aes(issue,n,fill=issue))+
+  geom_bar(stat="identity")+
+  theme(legend.position = "none")+
+  facet_wrap(~product,scale= "free",nrow = 6)+
+  coord_flip()
+```
+####Complaint category for products other than credit card
+```{r}
+product_issue %>%
+  filter(n>250)%>%
+  filter(product !="Credit card") %>%
+  ggplot(aes(issue,n,fill=issue))+
+  geom_bar(stat="identity")+
+  theme(legend.position = "none")+
+  facet_wrap(~product,scale= "free",nrow = 6)+
+  coord_flip()
+```
+
+#### From which mode more complaints are received
+```{r}
+complaint2 %>%
+  select(company,product,issue,submitted_via)%>%
+  na.omit()%>%
+  count(submitted_via) %>%
+  arrange(desc(n))%>%
+  ggplot(aes(submitted_via,n,fill=submitted_via))+
+  scale_y_continuous(labels = scales :: comma)+
+  geom_bar(stat="identity")+
+  theme(legend.position = "none")
+```
+
+```{r }
+top_companies <- complaint2 %>%
+  count(company) %>%
+  arrange(desc(n))%>%
+  top_n(10)
+````
+
+
+
+
+
+
+####Mode by which more complaints are received based on companies
+```{r}
+complaint2 %>%
+  select(company,product,issue,submitted_via)%>%
+  filter(company %in% top_companies$company)%>%
+  group_by(company)%>%
+  na.omit()%>%
+  count(submitted_via) %>%
+  ggplot(aes(company,n,fill=submitted_via))+
+  geom_bar(stat="identity",position = position_dodge())
+  
+```
+
+#### Distribution of complaints over United States
+
+As there is a state information from which the complaints was received, distribution of complaints over United States can be visualized by map packages.
+```{r}
+all_states <- map_data("state")
+
+complaint2 <- complaint2 %>%
+  mutate(region = state.name[match(state,state.abb)] )
+
+complaint2$region[is.na(complaint2$region)] <- "district of columbia"
+complaint2$region <- tolower(complaint2$region)
+
+```
+
+
+```{r}
+map_complaint <- complaint2 %>%
+  select(company,product,region) %>%
+  group_by(region)%>%
+  count(region)
+```
+
+
+```{r}
+map_state <- merge(all_states,map_complaint,by="region")
+map_state<- map_state[map_state$region!="district of columbia",]
+
+
+    map_state %>%
+      ggplot(aes(x=long,lat,group=group,fill= n))+
+      geom_polygon(color="white")+
+      scale_fill_continuous(low = "thistle2",high="red",guide="colorbar")+
+      theme_bw()+labs(fill = "Complaints",title="Number of Complaints by State",x="",y="")+
+      scale_y_continuous(breaks=c())+scale_x_continuous(breaks=c())+theme(panel.border=element_blank())
+```
+
+#### Companies with highest number of complaints distribution based on state
+
+````{r}
+comp_company_state <- complaint2 %>%
+      select(company,region)%>%
+      group_by(region)%>%
+      count(company)%>%
+      top_n(1,n)%>%
+      arrange(desc(n))
+   
+   map_company <-merge(all_states,comp_company_state,by="region")
+   map_company<- map_company[map_company$region!="district of columbia",]
+     
+   map_company %>%
+     ggplot(aes(x=long,lat,group=group,fill= company))+
+     geom_polygon(color="white")+
+     theme_bw()+labs(fill = "Complaints",title="Number of Complaints by State",x="",y="")+
+     scale_y_continuous(breaks=c())+scale_x_continuous(breaks=c())+theme(panel.border=element_blank())
+   
+```
+
+#### Products with highest number of complaints distribution based on state
+
+```{r}
+comp_product_state <- complaint2 %>%
+      select(product,region)%>%
+      group_by(region)%>%
+      count(product)%>%
+      top_n(1,n)%>%
+      arrange(desc(n))
+    
+    
+    map_product <-merge(all_states,comp_product_state,by="region")
+    map_product<- map_product[map_product$region!="district of columbia",]
+    
+    
+    map_product %>%
+      ggplot(aes(x=long,lat,group=group,fill= product))+
+      geom_polygon(color="white")+
+      theme_bw()+labs(fill = "Complaints",title="Number of Complaints by State",x="",y="")+
+      scale_y_continuous(breaks=c())+scale_x_continuous(breaks=c())+theme(panel.border=element_blank())
+    
+```
+
+##Data Analysis
+
+Sentimental Analysis helps to understand the emotional intent of words to infer whether the part of text is positive or negative.
+
+The Consumer Complaint Database by name implies is a complaint database. so obviously the expectation is it reveals mainly negative sentiment.Calaculating parameters with variables will provide greater clear picture.
+
+Tidytext package is used for sentimental analysis. Tidytext package have maimly three lexicons,among those "bing" lexicon is used for analysis.
+
+For Sentimental Analysis we need to clean up the text before used for analysis like removing white spaces,unwanted punctuations and removing stopwords.
+    
+#####Function to clean the text
+
+```{r}
+tm_clean <- function(corpus){
+      tm_clean <- tm_map(corpus,removePunctuation)
+      corpus <- tm_map(corpus,stripWhitespace)
+      corpus <- tm_map(corpus,removeWords,c(stopwords("en"),"xxxx","xx"))
+      return(corpus)
+}
+```
+
+```{r}
+data <- complaint2 %>%
+  select(company,product,issue,state,zipcode,submitted_via,company_response_to_consumer,timely_response,`consumer_disputed?`,consumer_complaint_narrative) %>%
+  na.omit 
+```
+
+#### Function to calculate sentiment
+```{r}
+GetSentiment <- function(i){
+      sentiment1 <- data %>%
+        filter(company == i ) %>%
+        select(consumer_complaint_narrative) %>%
+        VectorSource() %>%
+        VCorpus() %>%
+        tm_clean() %>%
+        DocumentTermMatrix()%>%
+        tidy()%>%
+        inner_join(get_sentiments("bing"),c(term = "word")) %>% # pull out only sentimen words
+        count(sentiment) %>% # count the # of positive & negative words
+        spread(sentiment, n, fill = 0) %>% # made data wide rather than narrow
+        mutate(sentiment = positive - negative) %>% # # of positive words - # of negative owrds
+        mutate(company = i)
+      return(sentiment1)
+    }
+
+```
+
+```{r}
+company_consumer_comp <- complaint2 %>%
+      select(company,consumer_complaint_narrative)%>%
+      na.omit() %>%
+      count(company) %>%
+      arrange(desc(n))%>%
+      filter(n>100)
+```
+
+####Calculating overall sentiments for companies
+```{r}
+comp <- company_consumer_comp$company
+    
+    listcomp <- as.list(comp)
+    
+    sentiments1 <- data_frame()
+    
+    for(i in listcomp )
+    {
+      sentiments1 <- rbind(sentiments1,GetSentiment(i))
+    }
+    
+    sentiments1
+```
+
+
+#### Complaint percentage calculation function
+```{r}
+ GetPercentage <- function(i){
+      d <- data %>%
+        filter(company == i) %>%
+        count(company) %>%
+        mutate(per = (n/66617)*100) 
+      return(d)
+    }
+    
+```
+
+#### Companies complaint percentage.
+
+```{r}
+    complaint_percent <- data_frame()
+    for(i in listcomp )
+    {
+      complaint_percent <- rbind(complaint_percent,GetPercentage(i))
+    }
+    complaint_percent
+```
+
+####Dispute rate Calculation function
+
+
+```{r}  
+    disp_rate <- function(i){
+      d1 <- data %>%
+        filter(company == i) %>%
+        count(company,`consumer_disputed?`) %>%
+        spread(`consumer_disputed?`,n,fill=0,drop = TRUE) %>%
+        mutate(total = Yes + No) %>%
+        mutate(YP = (Yes/total)*100) %>%
+        mutate(NP = (No/total)*100)
+      return(d1)
+       }
+
+```
+#### Companies Dispute rate
+
+```{r}
+    dispute_rate <- data_frame()
+    
+    for(i in listcomp)
+    {
+      dispute_rate<- rbind(dispute_rate,disp_rate(i))
+    }
+    dispute_rate
+```
+
+
+####Companies response calculation
+
+```{r}
+    company_response <- function(i){
+      d4 <- data %>%
+        filter(company == i) %>%
+        count(company,timely_response) 
+      
+      return(d4)
+       }
+    
+```
+
+####Companies timely response
+```{r}
+    tim_resp <- data_frame()
+    
+    for(i in listcomp )
+    {
+      tim_resp <- rbind(tim_resp,company_response(i)) 
+      
+    }
+    
+    tim_resp
+    ```
+#### Calculating yes and No percentage
+
+```{r}
+    resp_percent <- tim_resp %>%
+      spread(timely_response,n,fill=0,drop = TRUE) %>%
+      mutate(total = Yes + No) %>%
+      mutate(YP = (Yes/total)*100) %>%
+      mutate(NP = (No/total)*100)%>%
+      arrange(desc(total))
+```
+  
+  
+  ####Building a DataFrame with all the parameters calculated
+  
+```{r}
+    result1 <- full_join(complaint_percent,dispute_rate,by = "company")
+    result2 <- full_join(result1,sentiments1,by ="company")
+    result3 <- full_join(result2,resp_percent,by="company")
+```
+  
+```{r}  
+    final_result <- result3%>%
+      select(company,n,per,No.x,Yes.x,YP.x,NP.x,negative,positive,sentiment,
+             No.y,Yes.y,YP.y,NP.y)%>%
+      setNames(c("Company","Total Complaints","Complaint Percent","No Disputes",
+                 "Disputes","Dispute Percent","No Dispute Percent","Negative Sentiment",
+                 "Positive Sentiment","Sentiment","No Timely Response","Timely Response",
+                 "Timely Response Percent","No Timely Response Percent"))
+
+final_result
+```
+    
+# Text Mining
+
+# Case Study of Consumer Complaints based on book Text Mining with R [https://www.tidytextmining.com/]
+      
+      
+For any analysis data wrangling is an important step. To do analysis on consumer complaints text_clean() custom function is used to remove whitespace,irrelevant symbols and numberss,converting all characters to lowercase and replacing the contraction words accordingly.
+
+```{r}
+text.clean = function(x)                    # text data
+{ require("tm")
+  x  =  gsub("n't","not",x)
+  x  = gsub("'","",x)
+  x  =  gsub("<.*?>", " ", x)               # regex for removing HTML tags
+  x  =  iconv(x, "latin1", "ASCII", sub="") # Keep only ASCII characters
+  x  =  gsub("[^[:alnum:]]", " ", x)        # keep only alpha numeric 
+  x  =  tolower(x)                          # convert to lower case characters
+  x  =  removeNumbers(x)                    # removing numbers
+  x  =  stripWhitespace(x)                  # removing white space
+#  x  =  gsub("^\\s+|\\s+$", "", x) # remove leading and trailing white space
+  
+  return(x)
+}
+```
+
+
+Stopwords are words that are irrelavant or the fillers.Stop_words tibble in tidy text package have the list of stopwords. Real challenge while using stop_words is it contains the words "not","none" and "noone", as this is a complaint database the removal of above words results in more positive sentiment as that is not right way to move on. So creating a custom_stop_word list is important for this dataset. Also negation words like "didn't","can't" etc need to be taken into account.
+
+```{r}
+negation_word <- data.frame(negation.words)
+negation_word <- setNames(negation_word,c("word"))
+negation_word$word <- as.character(negation_word$word)
+negation_word <- bind_rows(negation_word,data_frame(word=
+                                                      c("non","noone","none",as.character(1:3))))
+
+stopword <- stop_words %>%
+  anti_join(negation_word)
+  
+stopword <- data.frame(stopword$word)
+stopword <- setNames(stopword,c("word"))
+stopword$word <- as.character(stopword$word)
+
+custom_stopword <- data_frame(word = 
+          c(as.character(1:10),"xxxx","xxx","xxxxx","xx","x","company","companies","said","told",
+                                  "however","since","asked","stated","equifax","well","item","items","done",
+                                  "going","n_t","s"))
+
+
+comn_stop_word <- bind_rows(stopword,custom_stopword)
+
+comn_stop_word <- list(comn_stop_word$word)
+```
+
+From our Explorotary Data Analysis top two products with more complaints are Mortgage and Debt Collection. So considering these two products for our text mining.
+
+## Text mining on Product - Mortgage
+
+Considering only complaints based on product Mortgage,cleaning up the data using text_clean data and removing custom stop words.
+
+
+```{r}
+Mortgage_comments <- data%>%
+  filter(product =='Mortgage')%>%
+  select(issue,consumer_complaint_narrative)
+
+
+Mortgage_comments$consumer_complaint_narrative <- text.clean(Mortgage_comments$consumer_complaint_narrative)
+
+Mortgage_comments$consumer_complaint_narrative <- removeWords(Mortgage_comments$consumer_complaint_narrative,unlist(comn_stop_word))
+
+```
+
+###Unigram Analysis
+
+Sentences can be tokenize into consective sequence of words called ngrams. By using unnest_tokens this can be achieved. Unigram analysis is done by splitting up the sentence to one ngarm per row and their frequency.
+
+```{r}
+
+Mortgage_comments_sentiment <- Mortgage_comments %>%
+  group_by(issue)%>%
+  unnest_tokens(word,consumer_complaint_narrative) %>%
+  anti_join(stopword)%>%
+  anti_join(custom_stopword)%>%
+  count(word,sort = TRUE)%>%
+  inner_join(get_sentiments("bing"))%>%
+  count(issue,sentiment)%>%
+  spread(sentiment, nn, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+Mortgage_comments_sentiment
+
+  
+Mortgage_unigram_sentiment<- Mortgage_comments %>%
+  group_by(issue)%>%
+  unnest_tokens(word,consumer_complaint_narrative) %>%
+  anti_join(stopword)%>%
+  anti_join(custom_stopword)%>%
+  inner_join(get_sentiments("bing"))%>%
+  count(word,sentiment,sort = TRUE)%>%
+  ungroup()%>%
+  group_by(issue,sentiment)%>%
+  top_n(10)%>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE,width = 1) +
+  facet_wrap(~issue, scale = "free") +
+  labs(y = "Contribution to sentiment",
+       x = NULL) +
+  coord_flip()
+
+Mortgage_unigram_sentiment
+
+```
+
+###Bigram and Trigram Analysis
+
+Though Unigram analysis help us in identifying the neagtive words, further the analysis can be extended towards bigram and trigram that will create more meaningful insights.
+
+```{r}
+Mortgage_bigram <- Mortgage_comments %>%
+  # group_by(issue)%>%
+  unnest_tokens(bigram,consumer_complaint_narrative,token="ngrams",n=2) %>%
+  count(issue,bigram,sort = TRUE)
+
+
+Mortgage_bigram
+
+Mortgage_bigram_graph <- Mortgage_comments %>%
+  # group_by(issue)%>%
+  unnest_tokens(bigram,consumer_complaint_narrative,token="ngrams",n=2) %>%
+  count(issue,bigram,sort = TRUE)%>%
+  ungroup()%>%
+  bind_tf_idf(bigram,issue,n)%>%
+  arrange(desc(tf_idf))%>%
+  mutate(bigram = factor(bigram, levels = rev(unique(bigram)))) %>% 
+  group_by(issue) %>% 
+  top_n(10) %>% 
+  ungroup %>%
+  ggplot(aes(bigram, tf_idf, fill = issue)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~issue, ncol = 2, scales = "free") +
+  coord_flip()
+
+Mortgage_bigram_graph
+
+```
+  From the above graph it is easy to identify the issues further. For example most complaints have bigram count for "inquires credit","pre approval" and "loan estimate" etc under the main issue Application,originator,mortgage broker.Similarly bigrams related to other issues can also be identified.Bigram gives more meaningful insight than the unigrams.Further it can be represented as a nodal graph as below for better visualization
+  
+```{r}
+bigram_count <- Mortgage_comments %>%
+  group_by(issue)%>%
+  unnest_tokens(bigram,consumer_complaint_narrative,token="ngrams",n=2) %>%
+  count(issue,bigram)
+
+bigram_count %>%
+  group_by(issue)%>%
+  #filter(n > 300) %>%
+  top_n(10,n)%>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(alpha = n, width = n)) +
+  geom_node_point(size = 6, color = "lightblue") +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+
+
+```
+
+
+```{r}
+Mortgage_trigram <- Mortgage_comments %>%
+  group_by(issue)%>%
+  unnest_tokens(trigram,consumer_complaint_narrative,token="ngrams",n=3) %>%
+  count(issue,trigram)%>%
+  bind_tf_idf(trigram,issue,n)%>%
+  arrange(desc(tf_idf))%>%
+  #mutate(bigram = factor(bigram, levels = rev(unique(word)))) %>% 
+  group_by(issue) %>% 
+  top_n(10) %>% 
+  ungroup %>%
+  ggplot(aes(trigram, tf_idf, fill = issue)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~issue, ncol = 2, scales = "free") +
+  coord_flip()
+
+Mortgage_trigram
+
+
+```
+  Trigram provides more clear picture,according to the plot under settlement process and cost, "violation of government code" is the top issue and "escrow account analysis" is the to under servicing,payments,escrow accounts.
+  
+  
+###Correlations
+
+With the help of n-grams we can identify the correlations between the entities
+
+```{r}
+cors <- Mortgage_comments %>%
+  group_by(issue)%>%
+  unnest_tokens(bigram,consumer_complaint_narrative,token="ngrams",n=2) %>%
+  count(issue,bigram)%>%
+  pairwise_cor(issue,bigram,n,sort=TRUE)
+
+cors
+
+set.seed(2017)
+
+Mortgage_cor_graph <- cors %>%
+  filter(correlation > .5) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(alpha = correlation, width = correlation)) +
+  geom_node_point(size = 6, color = "lightblue") +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+
+Mortgage_cor_graph
+```
+
+  Credit decision underwriting and Application originator mortgage broker issues are higly correlated.
+
+Correlation between trigrams
+
+```{r}
+trigram_count <- Mortgage_comments %>%
+  group_by(issue)%>%
+  unnest_tokens(trigram,consumer_complaint_narrative,token="ngrams",n=3) %>%
+  count(issue,trigram)%>%
+  filter(n >50)
+
+
+trigram_count$issue <- gsub("Application, originator, mortgage broker","1",trigram_count$issue)
+
+
+trigram_count$issue <- gsub("Loan modification,collection,foreclosure","2",trigram_count$issue)
+
+trigram_count$issue <- gsub("Loan servicing, payments, escrow account","3",trigram_count$issue)   
+trigram_count$issue <- gsub("Settlement process and costs","4",trigram_count$issue) 
+
+trigram_count$issue <- as.numeric(as.character(trigram_count$issue))
+
+
+
+tri_cor <- trigram_count %>%
+  pairwise_cor(trigram,issue,sort=TRUE)
+
+tri_cor
+
+
+```
+
+Further drilling down to each word,the correlation with other trigrams can also be found as below
+
+```{r}
+tri_cor%>%
+  filter(item2 == "deed lieu foreclosure")%>%
+ filter(correlation > 0.99)%>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(alpha=correlation, width = correlation),colour = "lightgreen") +
+  geom_node_point(size = 5, color = "green3") +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+```
+
+##Correlations among Products and Issues
+
+```{r}
+
+product_comments <- data%>%
+  select(product,issue,consumer_complaint_narrative)
+
+product_comments$consumer_complaint_narrative <- text.clean(product_comments$consumer_complaint_narrative)
+
+product_comments$consumer_complaint_narrative <- removeWords(product_comments$consumer_complaint_narrative,unlist(comn_stop_word))
+
+bigram_comment <- product_comments %>%
+  #group_by(product,issue)%>%
+  unnest_tokens(bigram,consumer_complaint_narrative,token="ngrams",n=2) %>%
+  count(product,issue,bigram)%>%
+  filter(n>75)
+ # group_by(bigram)
+ 
+
+
+prod_cor <- pairwise_cor(bigram_comment,product,bigram,sort = TRUE)
+
+prod_cor %>%
+  filter(correlation > 0) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(alpha = correlation, width = correlation),colour="snow3") +
+  geom_node_point(size = 6, color = "blue") +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+
+
+```
+
+  Considering all the issues in the dataset,based on the bigram correlations can be identified.
+  
+```{r}
+issue_cor <- pairwise_cor(bigram_comment,issue,bigram,sort = TRUE)
+
+issue_cor %>%
+  filter(correlation > .5) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(alpha=correlation, width = correlation),colour = "lightgreen") +
+  geom_node_point(size = 5, color = "green3") +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+
+
+
+```
+
+##Collocations - text2vec
+
+  Text2vec is another great package for NLP problems. By bigrams,two words occuring frequently similarly it is easy to extract collocations that can be used for Topic Modelling.
+  The Vocabulary can be pruned as one lexicon or two lexicons,based on the dataset.Below study is based on the text2vec package  [http://text2vec.org/api.html]
+  
+### One Lexicon - Comments Analysis 
+
+```{r}
+tok_fun = word_tokenizer  # using word & not space tokenizers
+
+itok = itoken( product_comments$consumer_complaint_narrative,
+               tokenizer = tok_fun,
+               progressbar = F)
+
+onelex_vocab = create_vocabulary(itok,    #  func collects unique terms & corresponding statistics
+                          ngram = c(1L, 1L))
+
+onelex_pruned_vocab = prune_vocabulary(onelex_vocab,  # filters input vocab & throws out v frequent & v infrequent terms
+                                term_count_min = 10)
+onelex_model = Collocations$new(vocabulary=onelex_pruned_vocab,collocation_count_min = 50)
+
+onelex_tok <-itoken(product_comments$consumer_complaint_narrative)
+onelex_model$fit(onelex_tok, n_iter = 3)
+
+onelex_stat <- onelex_model$collocation_stat
+
+onelex_stat
+
+```
+
+#### Two Lexicon - Comments Analysis
+
+```{r}
+
+twolex_vocab = create_vocabulary(itok,    #  func collects unique terms & corresponding statistics
+                                 ngram = c(2L, 2L))
+
+twolex_pruned_vocab = prune_vocabulary(twolex_vocab,  # filters input vocab & throws out v frequent & v infrequent terms
+                                       term_count_min = 10)
+twolex_model = Collocations$new(vocabulary=twolex_pruned_vocab,collocation_count_min = 50)
+
+twolex_tok <-itoken(product_comments$consumer_complaint_narrative)
+twolex_model$fit(twolex_tok, n_iter = 3)
+
+twolex_stat <- twolex_model$collocation_stat
+
+twolex_stat
+
+```
+
+### Collocation - Mortgage
+
+```{r}
+
+itok_mortgage = itoken( Mortgage_comments$consumer_complaint_narrative,
+               tokenizer = tok_fun,
+               progressbar = F)
+twolex_vocab_mt = create_vocabulary(itok_mortgage,    #  func collects unique terms & corresponding statistics
+                                 ngram = c(2L, 2L))
+
+twolex_pruned_vocab_mt = prune_vocabulary(twolex_vocab_mt,  # filters input vocab & throws out v frequent & v infrequent terms
+                                       term_count_min = 10)
+twolex_model_mt = Collocations$new(vocabulary=twolex_pruned_vocab_mt,collocation_count_min = 50)
+
+twolex_tok_mt <-itoken(Mortgage_comments$consumer_complaint_narrative)
+twolex_model_mt$fit(twolex_tok_mt, n_iter = 3)
+
+twolex_stat_mt <- twolex_model_mt$collocation_stat
+twolex_stat_mt
+
+
+
+```
+
+##Topic Modelling
+
+  text2vec pacakge is used to incorporate collocations in topic models. But that is mostly used for unstructured data,this dataset already grouped based on product,issues and sub_issues this can be a trail to apply topic modelling on collocations.
+  
+  
+```{r}  
+topics = 10
+vectorizer = vocab_vectorizer(twolex_pruned_vocab)
+dtm = create_dtm(twolex_tok, vectorizer)
+lda = LDA$new(topics)
+doc_topic = lda$fit_transform(dtm)
+
+
+lda$get_top_words(n = 10, topic_number = c(1L, 5L, 10L), lambda = 0.2)
+
+lda$plot()
+
+serVis(lda$plot())
+```
+
+## Reference
+
+1.[https://www.tidytextmining.com/]
+2.[http://text2vec.org/api.html]
